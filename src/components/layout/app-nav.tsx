@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-// /settings가 생기면(M4) 여기에 추가한다.
 const NAV_ITEMS = [
   { href: "/today", label: "오늘" },
   { href: "/routines", label: "루틴" },
   { href: "/stats", label: "기록" },
+  { href: "/settings", label: "설정" },
 ];
 
 export function AppNav() {

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getRoutines } from "@/server/queries/routines";
 
 export const metadata: Metadata = {
-  title: "루틴 | 뭐라도해야지",
+  title: "루틴",
 };
 
 export default async function RoutinesPage() {

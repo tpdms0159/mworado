@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LoginForm } from "@/components/auth/login-form";
 
 export const metadata: Metadata = {
-  title: "로그인 | 뭐라도해야지",
+  title: "로그인",
 };
 
 export default function LoginPage() {

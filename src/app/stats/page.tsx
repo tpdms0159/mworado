@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getStatsView } from "@/server/queries/stats";
 
 export const metadata: Metadata = {
-  title: "기록 | 뭐라도해야지",
+  title: "기록",
 };
 
 export default async function StatsPage() {

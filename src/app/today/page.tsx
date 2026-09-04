@@ -8,7 +8,7 @@ import { TodayList } from "@/components/today/today-list";
 import { AppNav } from "@/components/layout/app-nav";
 
 export const metadata: Metadata = {
-  title: "오늘 | 뭐라도해야지",
+  title: "오늘",
 };
 
 export default async function TodayPage() {
