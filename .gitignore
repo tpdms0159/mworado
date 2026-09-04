@@ -37,6 +37,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# 민감정보 메모(비밀번호/키 등)를 실수로 커밋하지 않기 위한 안전장치
+환경변수_정보.txt
+*비밀번호*.txt
+*secret*.txt
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
