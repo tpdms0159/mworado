@@ -39,6 +39,7 @@ export async function signInWithMagicLink(
   });
 
   if (error) {
+    console.error("[signInWithMagicLink]", error.status, error.code, error.message);
     return {
       status: "error",
       message: "로그인 링크를 보내지 못했어요. 잠시 후 다시 시도해 주세요.",
