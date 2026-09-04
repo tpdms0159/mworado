@@ -53,21 +53,13 @@ npm test
    - **Site URL**: 로컬 개발 중엔 `http://localhost:3000`, 배포 후에는 Vercel 배포 URL로 교체.
    - **Redirect URLs**에 다음 두 개를 추가: `http://localhost:3000/auth/callback` 와 배포 후 `https://<vercel 도메인>/auth/callback`.
 
-## 매직링크 이메일 발송 — Resend 연동 (권장)
+## 매직링크 이메일 발송
 
-Supabase 기본 내장 메일 발송은 테스트용으로만 설계되어 있어 시간당 발송량 제한이 매우 낮다 (실사용자가 몇 명만 몰려도 로그인 메일이 안 갈 수 있다). 무료로 안정적으로 보내기 위해 Resend를 커스텀 SMTP로 연결한다.
+**Supabase 기본 내장 메일 발송을 그대로 사용한다** (Custom SMTP 미사용). 별도 설정 없이 Authentication → Emails에서 Custom SMTP를 꺼둔 상태(기본값)면 된다.
 
-1. https://resend.com 가입 (카드 등록 불필요, 무료 티어: 일 100통 / 월 3,000통).
-2. **API Keys** 메뉴에서 새 키 발급 (발송 권한이면 충분).
-3. Resend 대시보드에서 발신 도메인을 인증하지 않아도 `onboarding@resend.dev` 같은 테스트 발신 주소로 우선 시작 가능. 실제 서비스 오픈 전에는 본인 도메인을 붙이는 걸 권장(도메인이 없다면 이 단계는 생략하고 테스트 발신 주소로 계속 사용).
-4. Supabase 대시보드 → **Project Settings → Authentication → SMTP Settings** 로 이동해 **Enable Custom SMTP** 켜고 다음 입력:
-   - Sender email: 3번에서 정한 발신 주소
-   - Sender name: `뭐라도해야지`
-   - Host: `smtp.resend.com`
-   - Port: `465` (SSL) 또는 `587`
-   - Username: `resend`
-   - Password: 2번에서 발급받은 API 키
-5. 저장 후 `/login`에서 매직링크 발송 테스트.
+> **왜 Resend 대신 기본 메일을 쓰는가**: 처음엔 무료 티어인 Resend를 커스텀 SMTP로 연결하려 했으나, Resend의 무료 테스트 발신 주소(`onboarding@resend.dev`)는 도메인을 인증하기 전까지 **Resend 가입자 본인 이메일로만 발송이 가능**하다는 제약이 있다(임의의 사용자 이메일로는 발송 자체가 거부됨). 이 프로젝트는 커스텀 도메인 없이 진행하기로 했기 때문에, 도메인 인증 없이 임의의 이메일로 실제 발송이 가능한 Supabase 기본 메일 발송으로 되돌렸다. 대신 시간당 발송 가능 횟수가 적다는 제약을 그대로 안고 간다 — 자세한 내용은 "무료 티어 제약과 한계" 참고.
+
+> 나중에 도메인을 구입하게 되면, 그때 Resend(또는 다른 SMTP)로 다시 전환해 발송 제한을 완화할 수 있다.
 
 ## Vercel 배포 (클릭 순서)
 
@@ -81,7 +73,7 @@ Supabase 기본 내장 메일 발송은 테스트용으로만 설계되어 있�
 ## 무료 티어 제약과 한계
 
 - **Supabase 프로젝트 일시정지**: 무료 프로젝트는 약 7일간 API 호출이 없으면 자동으로 일시정지된다. `vercel.json`의 Cron이 매일 `/api/cron/keepalive`를 호출해 이를 방지한다. 그럼에도 오래 방치하면(Vercel Cron 자체가 오래 비활성 배포에서 멈출 수 있음) 일시정지될 수 있으며, 이 경우 Supabase 대시보드에서 **Restore project** 버튼으로 수동 복구해야 한다(데이터는 보존됨).
-- **Resend 무료 티어**: 일 100통 / 월 3,000통. 개인용/포트폴리오 규모에서는 충분하지만 초과 시 추가 발송이 실패한다.
+- **Supabase 기본 메일 발송 제한**: 시간당 발송 가능한 이메일 수가 매우 적다(정확한 한도는 프로젝트마다 다를 수 있음). 개인용으로는 대체로 충분하지만, 짧은 시간에 로그인을 여러 번 반복 시도하면 발송이 막힐 수 있다. 도메인을 구입하면 Resend 등 커스텀 SMTP로 전환해 이 제약을 없앨 수 있다(위 "매직링크 이메일 발송" 참고).
 - **Vercel Hobby(무료) 티어**: 서버리스 함수 실행 시간·대역폭에 제한이 있다. 개인 프로젝트 트래픽 범위에서는 문제되지 않는다. Cron은 Hobby 플랜에서 하루 1회 빈도로 제한된다.
 - **Supabase 무료 DB 용량**: 500MB — 개인 습관 데이터 규모에서는 사실상 문제되지 않는다.
 
