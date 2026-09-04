@@ -2,6 +2,7 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { toggleRoutineLog } from "@/server/actions/routines";
 import {
   createTodo,
   deleteTodo,
@@ -10,13 +11,14 @@ import {
   toggleTodo,
   updateTodoTitle,
 } from "@/server/actions/todos";
-import type { Todo } from "@/server/queries/today";
+import type { RoutineTodayItem, Todo } from "@/server/queries/today";
 import { ProgressBar } from "./progress-bar";
 import { QuickAddInput } from "./quick-add-input";
+import { RoutineRow } from "./routine-row";
 import { SortableTodoList } from "./sortable-todo-list";
 import { TodoRow } from "./todo-row";
 
-type OptimisticAction =
+type TodoAction =
   | { type: "add"; todo: Todo }
   | { type: "toggle"; id: string; completed: boolean }
   | { type: "edit"; id: string; title: string }
@@ -24,7 +26,7 @@ type OptimisticAction =
   | { type: "restore"; todo: Todo }
   | { type: "reorder"; ids: string[] };
 
-function applyAction(state: Todo[], action: OptimisticAction): Todo[] {
+function applyTodoAction(state: Todo[], action: TodoAction): Todo[] {
   switch (action.type) {
     case "add":
       return [...state, action.todo];
@@ -48,14 +50,28 @@ function applyAction(state: Todo[], action: OptimisticAction): Todo[] {
   }
 }
 
-export function TodayList({ initialTodos }: { initialTodos: Todo[] }) {
-  const [optimisticTodos, applyOptimistic] = useOptimistic(initialTodos, applyAction);
+function applyRoutineToggle(
+  state: RoutineTodayItem[],
+  action: { id: string; completed: boolean },
+): RoutineTodayItem[] {
+  return state.map((r) => (r.id === action.id ? { ...r, completed: action.completed } : r));
+}
+
+export function TodayList({
+  initialTodos,
+  initialRoutines,
+}: {
+  initialTodos: Todo[];
+  initialRoutines: RoutineTodayItem[];
+}) {
+  const [optimisticTodos, applyTodo] = useOptimistic(initialTodos, applyTodoAction);
+  const [optimisticRoutines, applyRoutine] = useOptimistic(initialRoutines, applyRoutineToggle);
   const [, startTransition] = useTransition();
   const [showCompleted, setShowCompleted] = useState(true);
 
-  function handleAdd(title: string) {
+  function handleAddTodo(title: string) {
     startTransition(async () => {
-      applyOptimistic({
+      applyTodo({
         type: "add",
         todo: {
           id: `temp-${crypto.randomUUID()}`,
@@ -69,27 +85,27 @@ export function TodayList({ initialTodos }: { initialTodos: Todo[] }) {
     });
   }
 
-  function handleToggle(id: string, completed: boolean) {
+  function handleToggleTodo(id: string, completed: boolean) {
     startTransition(async () => {
-      applyOptimistic({ type: "toggle", id, completed });
+      applyTodo({ type: "toggle", id, completed });
       const result = await toggleTodo(id, completed);
       if (result.error) toast.error(result.error);
     });
   }
 
-  function handleEdit(id: string, title: string) {
+  function handleEditTodo(id: string, title: string) {
     startTransition(async () => {
-      applyOptimistic({ type: "edit", id, title });
+      applyTodo({ type: "edit", id, title });
       const result = await updateTodoTitle(id, title);
       if (result.error) toast.error(result.error);
     });
   }
 
-  function handleDelete(id: string) {
+  function handleDeleteTodo(id: string) {
     const removed = optimisticTodos.find((t) => t.id === id);
 
     startTransition(async () => {
-      applyOptimistic({ type: "remove", id });
+      applyTodo({ type: "remove", id });
       const result = await deleteTodo(id);
       if (result.error) {
         toast.error(result.error);
@@ -102,7 +118,7 @@ export function TodayList({ initialTodos }: { initialTodos: Todo[] }) {
           onClick: () => {
             if (!removed) return;
             startTransition(async () => {
-              applyOptimistic({ type: "restore", todo: removed });
+              applyTodo({ type: "restore", todo: removed });
               const restoreResult = await restoreTodo(id);
               if (restoreResult.error) toast.error(restoreResult.error);
             });
@@ -112,29 +128,44 @@ export function TodayList({ initialTodos }: { initialTodos: Todo[] }) {
     });
   }
 
-  function handleReorder(ids: string[]) {
+  function handleReorderTodo(ids: string[]) {
     startTransition(async () => {
-      applyOptimistic({ type: "reorder", ids });
+      applyTodo({ type: "reorder", ids });
       const result = await reorderTodos(ids);
       if (result.error) toast.error(result.error);
     });
   }
 
-  const total = optimisticTodos.length;
-  const doneCount = optimisticTodos.filter((t) => t.completed).length;
-  const incomplete = [...optimisticTodos]
+  function handleToggleRoutine(id: string, completed: boolean) {
+    startTransition(async () => {
+      applyRoutine({ id, completed });
+      const result = await toggleRoutineLog(id, completed);
+      if (result.error) toast.error(result.error);
+    });
+  }
+
+  const totalCount = optimisticTodos.length + optimisticRoutines.length;
+  const doneCount =
+    optimisticTodos.filter((t) => t.completed).length +
+    optimisticRoutines.filter((r) => r.completed).length;
+
+  const incompleteTodos = [...optimisticTodos]
     .filter((t) => !t.completed)
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  const completed = [...optimisticTodos]
+  const completedTodos = [...optimisticTodos]
     .filter((t) => t.completed)
     .sort((a, b) => a.sortOrder - b.sortOrder);
+  const incompleteRoutines = optimisticRoutines.filter((r) => !r.completed);
+  const completedRoutines = optimisticRoutines.filter((r) => r.completed);
+  const completedCount = completedTodos.length + completedRoutines.length;
+  const hasIncomplete = incompleteTodos.length > 0 || incompleteRoutines.length > 0;
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
-      {total > 0 && <ProgressBar done={doneCount} total={total} />}
-      <QuickAddInput onAdd={handleAdd} />
+      {totalCount > 0 && <ProgressBar done={doneCount} total={totalCount} />}
+      <QuickAddInput onAdd={handleAddTodo} />
 
-      {total === 0 && (
+      {totalCount === 0 && (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 py-16 text-center">
           <p className="text-muted-foreground text-base">
             오늘은 아직 아무것도 없네. 뭐라도 하나 적어볼까?
@@ -142,38 +173,49 @@ export function TodayList({ initialTodos }: { initialTodos: Todo[] }) {
         </div>
       )}
 
-      {incomplete.length === 0 && completed.length > 0 && (
+      {totalCount > 0 && !hasIncomplete && (
         <p className="text-muted-foreground py-4 text-center text-sm">오늘 할 일 끝. 잘했어.</p>
       )}
 
-      {incomplete.length > 0 && (
+      {incompleteRoutines.length > 0 && (
+        <ul className="flex flex-col gap-1.5" role="list">
+          {incompleteRoutines.map((routine) => (
+            <RoutineRow key={routine.id} routine={routine} onToggle={handleToggleRoutine} />
+          ))}
+        </ul>
+      )}
+
+      {incompleteTodos.length > 0 && (
         <SortableTodoList
-          items={incomplete}
-          onToggle={handleToggle}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onReorder={handleReorder}
+          items={incompleteTodos}
+          onToggle={handleToggleTodo}
+          onEdit={handleEditTodo}
+          onDelete={handleDeleteTodo}
+          onReorder={handleReorderTodo}
         />
       )}
 
-      {completed.length > 0 && (
+      {completedCount > 0 && (
         <div className="flex flex-col gap-1.5">
           <button
             type="button"
             onClick={() => setShowCompleted((v) => !v)}
             className="text-muted-foreground self-start text-sm"
           >
-            완료 {completed.length}개 {showCompleted ? "접기" : "펼치기"}
+            완료 {completedCount}개 {showCompleted ? "접기" : "펼치기"}
           </button>
           {showCompleted && (
             <ul className="flex flex-col gap-1.5" role="list">
-              {completed.map((todo) => (
+              {completedRoutines.map((routine) => (
+                <RoutineRow key={routine.id} routine={routine} onToggle={handleToggleRoutine} />
+              ))}
+              {completedTodos.map((todo) => (
                 <TodoRow
                   key={todo.id}
                   todo={todo}
-                  onToggle={handleToggle}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
+                  onToggle={handleToggleTodo}
+                  onEdit={handleEditTodo}
+                  onDelete={handleDeleteTodo}
                 />
               ))}
             </ul>
