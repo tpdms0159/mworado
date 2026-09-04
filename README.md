@@ -1,36 +1,94 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 뭐라도해야지 (mworado)
 
-## Getting Started
+매일 해야 할 일을 등록하고 완료를 체크하며, 반복 루틴의 꾸준함을 잔디 그래프로 확인하는 개인용 데일리 체크 웹앱.
 
-First, run the development server:
+> 이 문서는 마일스톤이 진행될 때마다 함께 갱신됩니다. 현재 상태: **M0 — 셋업**
+
+## 기술 스택
+
+- Next.js (App Router) + TypeScript
+- Tailwind CSS + shadcn/ui
+- Supabase (Postgres + Auth) — 무료 티어
+- Vercel — 무료 티어, GitHub 연동 자동 배포
+- Vitest — 단위 테스트
+
+## 로컬 실행 방법
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+브라우저에서 http://localhost:3000 접속.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+단위 테스트 실행:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+```
 
-## Learn More
+## 환경변수
 
-To learn more about Next.js, take a look at the following resources:
+`.env.example`을 참고해 `.env.local`을 채운다 (`.env.local`은 git에 커밋되지 않는다).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| 변수 | 설명 | 어디서 얻는가 |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL | Supabase 대시보드 → Settings → API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 공개(anon) API 키 — 클라이언트에 노출되어도 되는 키 | Supabase 대시보드 → Settings → API |
+| `SUPABASE_SERVICE_ROLE_KEY` | **서버 전용** 관리자 키 — 클라이언트에 절대 노출 금지 (`src/lib/supabase/admin.ts`에서만 사용, `server-only` 패키지로 실수 유입을 빌드 타임에 차단) | Supabase 대시보드 → Settings → API |
+| `CRON_SECRET` | Vercel Cron이 `/api/cron/keepalive`를 호출할 때 검증하는 임의의 비밀 문자열 | 아무 랜덤 문자열이나 직접 생성 |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Supabase 프로젝트 설정 (클릭 순서)
 
-## Deploy on Vercel
+1. https://supabase.com 접속 → 로그인 → **New project** 클릭.
+2. 조직(Organization) 선택 → 프로젝트 이름 `mworado` 입력 → 데이터베이스 비밀번호 설정(안전한 곳에 보관) → Region은 **Northeast Asia (Seoul)** 선택 → **Create new project**.
+3. 프로젝트가 준비되면 왼쪽 메뉴 **Project Settings(톱니바퀴 아이콘) → API** 로 이동.
+   - `Project URL` → `.env.local`의 `NEXT_PUBLIC_SUPABASE_URL`
+   - `anon` `public` 키 → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `service_role` `secret` 키 → `SUPABASE_SERVICE_ROLE_KEY` (절대 다른 곳에 공유하지 않기)
+4. 왼쪽 메뉴 **SQL Editor** → **New query**로 이동.
+5. 이 저장소의 `supabase/migrations/` 폴더 안 파일을 **파일명 순서대로**(`0001_...` → `0006_...`) 하나씩 열어서 내용을 SQL Editor에 붙여넣고 **Run** 클릭. (마이그레이션은 순서가 중요하다 — 나중 파일이 앞 파일의 테이블을 참조한다.)
+6. 왼쪽 메뉴 **Authentication → Sign In / Providers** 에서 **Email** provider가 켜져 있는지 확인. "Confirm email"은 매직링크 흐름에서는 꺼둬도 무방(매직링크 자체가 확인 역할을 한다).
+7. 왼쪽 메뉴 **Authentication → URL Configuration** 에서:
+   - **Site URL**: 로컬 개발 중엔 `http://localhost:3000`, 배포 후에는 Vercel 배포 URL로 교체.
+   - **Redirect URLs**에 다음 두 개를 추가: `http://localhost:3000/auth/callback` 와 배포 후 `https://<vercel 도메인>/auth/callback`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 매직링크 이메일 발송 — Resend 연동 (권장)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Supabase 기본 내장 메일 발송은 테스트용으로만 설계되어 있어 시간당 발송량 제한이 매우 낮다 (실사용자가 몇 명만 몰려도 로그인 메일이 안 갈 수 있다). 무료로 안정적으로 보내기 위해 Resend를 커스텀 SMTP로 연결한다.
+
+1. https://resend.com 가입 (카드 등록 불필요, 무료 티어: 일 100통 / 월 3,000통).
+2. **API Keys** 메뉴에서 새 키 발급 (발송 권한이면 충분).
+3. Resend 대시보드에서 발신 도메인을 인증하지 않아도 `onboarding@resend.dev` 같은 테스트 발신 주소로 우선 시작 가능. 실제 서비스 오픈 전에는 본인 도메인을 붙이는 걸 권장(도메인이 없다면 이 단계는 생략하고 테스트 발신 주소로 계속 사용).
+4. Supabase 대시보드 → **Project Settings → Authentication → SMTP Settings** 로 이동해 **Enable Custom SMTP** 켜고 다음 입력:
+   - Sender email: 3번에서 정한 발신 주소
+   - Sender name: `뭐라도해야지`
+   - Host: `smtp.resend.com`
+   - Port: `465` (SSL) 또는 `587`
+   - Username: `resend`
+   - Password: 2번에서 발급받은 API 키
+5. 저장 후 `/login`에서 매직링크 발송 테스트.
+
+## Vercel 배포 (클릭 순서)
+
+1. 이 프로젝트를 GitHub 저장소로 푸시 (저장소 이름: `mworado`).
+2. https://vercel.com 로그인 → **Add New → Project** → 방금 만든 GitHub 저장소 선택 → **Import**.
+3. Framework Preset은 Next.js로 자동 인식됨. **Environment Variables**에 `.env.local`의 4개 값을 모두 등록(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`).
+4. **Deploy** 클릭. 배포가 끝나면 `https://<프로젝트명>.vercel.app` 형태의 URL이 발급된다.
+5. Supabase **Authentication → URL Configuration**의 Site URL / Redirect URLs에 이 배포 URL을 추가(위 "Supabase 프로젝트 설정" 7번 참고).
+6. `vercel.json`에 정의된 Cron(`/api/cron/keepalive`, 매일 1회)이 자동으로 등록된다 — Vercel 대시보드의 **Cron Jobs** 탭에서 확인 가능.
+
+## 무료 티어 제약과 한계
+
+- **Supabase 프로젝트 일시정지**: 무료 프로젝트는 약 7일간 API 호출이 없으면 자동으로 일시정지된다. `vercel.json`의 Cron이 매일 `/api/cron/keepalive`를 호출해 이를 방지한다. 그럼에도 오래 방치하면(Vercel Cron 자체가 오래 비활성 배포에서 멈출 수 있음) 일시정지될 수 있으며, 이 경우 Supabase 대시보드에서 **Restore project** 버튼으로 수동 복구해야 한다(데이터는 보존됨).
+- **Resend 무료 티어**: 일 100통 / 월 3,000통. 개인용/포트폴리오 규모에서는 충분하지만 초과 시 추가 발송이 실패한다.
+- **Vercel Hobby(무료) 티어**: 서버리스 함수 실행 시간·대역폭에 제한이 있다. 개인 프로젝트 트래픽 범위에서는 문제되지 않는다. Cron은 Hobby 플랜에서 하루 1회 빈도로 제한된다.
+- **Supabase 무료 DB 용량**: 500MB — 개인 습관 데이터 규모에서는 사실상 문제되지 않는다.
+
+## 스트릭 계산 규칙
+
+> M2(루틴)에서 구현과 함께 이 섹션이 채워집니다.
+
+## 프로젝트 구조 / 데이터 모델
+
+자세한 내용은 [`docs/spec.md`](./docs/spec.md) 참고.
