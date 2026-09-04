@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-// M2 기준으로 아직 만들어진 화면(오늘/루틴)만 링크한다.
-// /stats, /settings가 생기면(M3, M4) 여기에 추가한다.
+// /settings가 생기면(M4) 여기에 추가한다.
 const NAV_ITEMS = [
   { href: "/today", label: "오늘" },
   { href: "/routines", label: "루틴" },
+  { href: "/stats", label: "기록" },
 ];
 
 export function AppNav() {
