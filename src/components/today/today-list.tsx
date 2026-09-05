@@ -12,6 +12,7 @@ import {
   updateTodoTitle,
 } from "@/server/actions/todos";
 import type { RoutineTodayItem, Todo } from "@/server/queries/today";
+import { safeAction } from "@/lib/safe-action";
 import { ProgressBar } from "./progress-bar";
 import { QuickAddInput } from "./quick-add-input";
 import { RoutineRow } from "./routine-row";
@@ -80,7 +81,7 @@ export function TodayList({
           sortOrder: optimisticTodos.length,
         },
       });
-      const result = await createTodo(title);
+      const result = await safeAction(() => createTodo(title));
       if (result.error) toast.error(result.error);
     });
   }
@@ -88,7 +89,7 @@ export function TodayList({
   function handleToggleTodo(id: string, completed: boolean) {
     startTransition(async () => {
       applyTodo({ type: "toggle", id, completed });
-      const result = await toggleTodo(id, completed);
+      const result = await safeAction(() => toggleTodo(id, completed));
       if (result.error) toast.error(result.error);
     });
   }
@@ -96,7 +97,7 @@ export function TodayList({
   function handleEditTodo(id: string, title: string) {
     startTransition(async () => {
       applyTodo({ type: "edit", id, title });
-      const result = await updateTodoTitle(id, title);
+      const result = await safeAction(() => updateTodoTitle(id, title));
       if (result.error) toast.error(result.error);
     });
   }
@@ -106,7 +107,7 @@ export function TodayList({
 
     startTransition(async () => {
       applyTodo({ type: "remove", id });
-      const result = await deleteTodo(id);
+      const result = await safeAction(() => deleteTodo(id));
       if (result.error) {
         toast.error(result.error);
         return;
@@ -119,7 +120,7 @@ export function TodayList({
             if (!removed) return;
             startTransition(async () => {
               applyTodo({ type: "restore", todo: removed });
-              const restoreResult = await restoreTodo(id);
+              const restoreResult = await safeAction(() => restoreTodo(id));
               if (restoreResult.error) toast.error(restoreResult.error);
             });
           },
@@ -131,7 +132,7 @@ export function TodayList({
   function handleReorderTodo(ids: string[]) {
     startTransition(async () => {
       applyTodo({ type: "reorder", ids });
-      const result = await reorderTodos(ids);
+      const result = await safeAction(() => reorderTodos(ids));
       if (result.error) toast.error(result.error);
     });
   }
@@ -139,7 +140,7 @@ export function TodayList({
   function handleToggleRoutine(id: string, completed: boolean) {
     startTransition(async () => {
       applyRoutine({ id, completed });
-      const result = await toggleRoutineLog(id, completed);
+      const result = await safeAction(() => toggleRoutineLog(id, completed));
       if (result.error) toast.error(result.error);
     });
   }

@@ -14,6 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { safeAction } from "@/lib/safe-action";
 import { deleteAccount, exportUserData, updateDayStartHour } from "@/server/actions/settings";
 import { signOut } from "@/server/actions/auth";
 
@@ -42,14 +43,14 @@ export function SettingsForm({
   function handleHourChange(newHour: number) {
     setHour(newHour);
     startTransition(async () => {
-      const result = await updateDayStartHour(newHour);
+      const result = await safeAction(() => updateDayStartHour(newHour));
       if (result.error) toast.error(result.error);
     });
   }
 
   async function handleExport() {
     setExporting(true);
-    const result = await exportUserData();
+    const result = await safeAction(() => exportUserData());
     setExporting(false);
 
     if (result.error || !result.data) {
@@ -71,6 +72,9 @@ export function SettingsForm({
   function handleDelete() {
     setDeleting(true);
     startTransition(async () => {
+      // safeAction으로 감싸지 않는다: deleteAccount는 성공 시 내부에서
+      // redirect()를 던지는데, 이는 Next.js가 내부적으로 처리해야 하는
+      // 특수한 예외라 여기서 잡아버리면 리다이렉트 자체가 깨진다.
       const result = await deleteAccount();
       if (result?.error) {
         setDeleting(false);

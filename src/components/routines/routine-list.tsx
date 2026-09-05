@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AppNav } from "@/components/layout/app-nav";
+import { safeAction } from "@/lib/safe-action";
 import { createRoutine, setRoutineArchived, updateRoutine } from "@/server/actions/routines";
 import type { Routine } from "@/server/queries/routines";
 import type { RepeatConfig, RepeatType } from "@/lib/date/recurrence";
@@ -61,7 +62,7 @@ export function RoutineList({ initialRoutines }: { initialRoutines: Routine[] })
       const id = editingRoutine.id;
       startTransition(async () => {
         applyOptimistic({ type: "update", id, name, repeatType, repeatConfig });
-        const result = await updateRoutine(id, name, repeatType, repeatConfig);
+        const result = await safeAction(() => updateRoutine(id, name, repeatType, repeatConfig));
         setSubmitting(false);
         if (result.error) {
           toast.error(result.error);
@@ -82,7 +83,7 @@ export function RoutineList({ initialRoutines }: { initialRoutines: Routine[] })
             isArchived: false,
           },
         });
-        const result = await createRoutine(name, repeatType, repeatConfig);
+        const result = await safeAction(() => createRoutine(name, repeatType, repeatConfig));
         setSubmitting(false);
         if (result.error) {
           toast.error(result.error);
@@ -97,7 +98,7 @@ export function RoutineList({ initialRoutines }: { initialRoutines: Routine[] })
     const nextArchived = !routine.isArchived;
     startTransition(async () => {
       applyOptimistic({ type: "archive", id: routine.id, archived: nextArchived });
-      const result = await setRoutineArchived(routine.id, nextArchived);
+      const result = await safeAction(() => setRoutineArchived(routine.id, nextArchived));
       if (result.error) toast.error(result.error);
     });
   }
