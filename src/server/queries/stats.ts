@@ -22,6 +22,10 @@ export type GrassDay = {
   level: 0 | 1 | 2 | 3 | 4;
 };
 
+// 잔디 칸을 눌렀을 때 보여줄, 그 날짜에 등록됐던 항목들.
+export type DayDetailItem = { title: string; completed: boolean };
+export type DayDetail = { todos: DayDetailItem[]; routines: DayDetailItem[] };
+
 export type RoutineCompletionStat = {
   id: string;
   name: string;
@@ -34,6 +38,8 @@ export type RoutineCompletionStat = {
 export type StatsView = {
   today: LocalDateString;
   grassDays: GrassDay[];
+  // 항목이 하나라도 있던 날짜만 키로 담는다. 잔디 칸 클릭 시 참조.
+  dayDetails: Record<string, DayDetail>;
   currentStreak: number;
   longestStreak: number;
   last30DaysRate: number;
@@ -82,10 +88,11 @@ export async function getStatsView(): Promise<StatsView> {
       .lte("log_date", today),
     supabase
       .from("todos")
-      .select("todo_date, completed")
+      .select("todo_date, title, completed, sort_order")
       .is("deleted_at", null)
       .gte("todo_date", rangeStart)
-      .lte("todo_date", today),
+      .lte("todo_date", today)
+      .order("sort_order", { ascending: true }),
   ]);
 
   if (routinesResult.error) throw routinesResult.error;
@@ -97,11 +104,16 @@ export async function getStatsView(): Promise<StatsView> {
   const todos = todosResult.data ?? [];
 
   const todosByDate = new Map<string, { planned: number; completed: number }>();
+  const todoItemsByDate = new Map<string, DayDetailItem[]>();
   for (const t of todos) {
     const entry = todosByDate.get(t.todo_date) ?? { planned: 0, completed: 0 };
     entry.planned += 1;
     if (t.completed) entry.completed += 1;
     todosByDate.set(t.todo_date, entry);
+
+    const items = todoItemsByDate.get(t.todo_date) ?? [];
+    items.push({ title: t.title, completed: t.completed });
+    todoItemsByDate.set(t.todo_date, items);
   }
 
   const completedDatesByRoutine = new Map<string, Set<string>>();
@@ -117,10 +129,13 @@ export async function getStatsView(): Promise<StatsView> {
     dates.push(addDaysToDateString(rangeStart, i));
   }
 
+  const dayDetails: Record<string, DayDetail> = {};
+
   const grassDays: GrassDay[] = dates.map((date) => {
     const todoEntry = todosByDate.get(date) ?? { planned: 0, completed: 0 };
     let routinesPlanned = 0;
     let routinesCompleted = 0;
+    const routineItems: DayDetailItem[] = [];
 
     for (const routine of routines) {
       // 루틴이 생기기 전 날짜는 "그날 계획됨"으로 치지 않는다(created_at 이전).
@@ -129,11 +144,18 @@ export async function getStatsView(): Promise<StatsView> {
         continue;
       }
       routinesPlanned += 1;
-      if (completedDatesByRoutine.get(routine.id)?.has(date)) routinesCompleted += 1;
+      const done = completedDatesByRoutine.get(routine.id)?.has(date) ?? false;
+      if (done) routinesCompleted += 1;
+      routineItems.push({ title: routine.name, completed: done });
     }
 
     const planned = todoEntry.planned + routinesPlanned;
     const completed = todoEntry.completed + routinesCompleted;
+
+    const todoItems = todoItemsByDate.get(date) ?? [];
+    if (todoItems.length > 0 || routineItems.length > 0) {
+      dayDetails[date] = { todos: todoItems, routines: routineItems };
+    }
 
     return { date, planned, completed, level: calcLevel(planned, completed) };
   });
@@ -177,5 +199,14 @@ export async function getStatsView(): Promise<StatsView> {
 
   const hasAnyData = grassDays.some((d) => d.planned > 0);
 
-  return { today, grassDays, currentStreak, longestStreak, last30DaysRate, routineStats, hasAnyData };
+  return {
+    today,
+    grassDays,
+    dayDetails,
+    currentStreak,
+    longestStreak,
+    last30DaysRate,
+    routineStats,
+    hasAnyData,
+  };
 }

@@ -23,8 +23,15 @@ export default async function StatsPage() {
     redirect("/login");
   }
 
-  const { grassDays, currentStreak, longestStreak, last30DaysRate, routineStats, hasAnyData } =
-    await getStatsView();
+  const {
+    grassDays,
+    dayDetails,
+    currentStreak,
+    longestStreak,
+    last30DaysRate,
+    routineStats,
+    hasAnyData,
+  } = await getStatsView();
 
   return (
     <div className="flex flex-1 flex-col gap-2">
@@ -50,7 +57,7 @@ export default async function StatsPage() {
               longestStreak={longestStreak}
               last30DaysRate={last30DaysRate}
             />
-            <GrassGraph days={grassDays} />
+            <GrassGraph days={grassDays} dayDetails={dayDetails} />
             {routineStats.length > 0 && (
               <div className="flex flex-col gap-2">
                 <h2 className="text-sm font-medium">루틴별 달성률 (최근 30일)</h2>
