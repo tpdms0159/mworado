@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -89,13 +90,23 @@ export function SettingsForm({
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">계정</h2>
         <Card>
-          <CardContent className="flex items-center justify-between gap-2 p-4">
-            <span className="text-muted-foreground min-w-0 truncate text-sm">{email}</span>
-            <form action={signOut} className="shrink-0">
-              <Button type="submit" variant="outline" size="sm">
-                로그아웃
-              </Button>
-            </form>
+          <CardContent className="flex flex-col gap-3 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground min-w-0 truncate text-sm">
+                {email}
+              </span>
+              <form action={signOut} className="shrink-0">
+                <Button type="submit" variant="outline" size="sm">
+                  로그아웃
+                </Button>
+              </form>
+            </div>
+            <Link
+              href="/account/set-password"
+              className="text-muted-foreground hover:text-foreground text-sm underline underline-offset-2"
+            >
+              비밀번호 변경
+            </Link>
           </CardContent>
         </Card>
       </section>

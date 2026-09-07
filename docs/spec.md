@@ -92,11 +92,27 @@ README "스트릭 계산 규칙" 절 참고. 구현: `src/lib/date/streak.ts`, �
 |---|---|
 | `/` 랜딩 | M0: 자리표시. M4에서 실제 스크린샷/카피로 완성 |
 | `/demo` | 미구현 (M4) |
-| `/login` | M0: 매직링크 구현 완료, 실제 배포 환경에서 로그인 확인됨. 구글 로그인은 이후 추가 |
+| `/login` | 이메일 + 비밀번호 로그인. 구글 로그인은 이후 추가 |
+| `/signup` | 이메일로 가입 링크 발송 (2026-09-07 추가) |
+| `/forgot-password` | 비밀번호 재설정 링크 발송 (2026-09-07 추가) |
+| `/account/set-password` | 가입/재설정 링크로 도착해 비밀번호 설정. 설정 화면의 "비밀번호 변경"에서도 진입 (2026-09-07 추가) |
 | `/today` | M1: 할 일 CRUD·체크·순서변경·진행률 구현 완료. M2: 오늘 해당 루틴이 함께 표시되고 체크 가능, 스트릭 배지 표시 |
 | `/routines` | M2: 루틴 생성·수정·보관 구현 완료 |
 | `/stats` | M3: 잔디 그래프, 현재/최장 연속일, 최근 30일 완료율, 루틴별 달성률 막대, 빈 상태 구현 완료 |
-| `/settings` | M4: 하루 시작 시각, 테마, JSON 내보내기, 계정 삭제 구현 완료 |
+| `/settings` | M4: 하루 시작 시각, 테마, JSON 내보내기, 계정 삭제 구현 완료. 2026-09-07: "비밀번호 변경" 링크 추가 |
+
+## 인증(로그인) 흐름 — 2026-09-07 개편
+
+매직링크 전용에서 **이메일 + 비밀번호** 방식으로 전환. "매번 메일 받기"가 번거롭고 Supabase 기본 메일의 시간당 발송 한도에 자주 걸리는 문제를 해결하기 위함.
+
+- **가입** (`/signup` → `sendSignUpLink`): `signInWithOtp({ shouldCreateUser: true })`로 링크 발송. 매직링크 메커니즘을 그대로 재사용하되 `emailRedirectTo`를 `/auth/callback?next=/account/set-password`로 지정.
+- **콜백** (`/auth/callback`): `exchangeCodeForSession`으로 세션 수립 후 `next`로 이동. `next`는 `/`로 시작하고 `//`가 아닌 내부 경로만 허용(open redirect 방지). 실패 시 `/login?error=auth`.
+- **비밀번호 설정** (`/account/set-password` → `setPassword`): 세션이 있는 상태에서 `updateUser({ password })`. 8자 이상 + 확인 일치 검증. 성공 시 `/today`. 이 화면은 가입·재설정·(설정에서) 비밀번호 변경 세 경우가 공유한다.
+- **로그인** (`/login` → `signInWithPassword`): 이메일+비밀번호. 성공 시 `next`(기본 `/today`)로 `redirect()`. 프록시가 붙여준 `?next=`를 hidden input으로 전달.
+- **비밀번호 재설정** (`/forgot-password` → `sendPasswordResetLink`): `resetPasswordForEmail`. 계정 존재 여부를 노출하지 않기 위해 에러가 없으면 항상 "보냈어요"로 응답.
+- **프록시**(`src/proxy.ts`): 보호 프리픽스에 `/account` 추가. 이미 로그인한 사용자가 `/login`·`/signup`·`/forgot-password`에 오면 `/today`로 보냄(`/account/set-password`는 제외 — 로그인 상태에서 접근하는 화면이라서).
+- 서버 액션은 기존 코드 스타일에 맞춰 zod 없이 수동 검증. 관련 파일: `src/server/actions/auth.ts`, `src/components/auth/*`.
+- Supabase 대시보드: Email provider의 "Confirm email"과 비밀번호 로그인이 켜져 있어야 함. 가입 링크는 "Magic Link" 이메일 템플릿을 쓰므로 문구를 다듬는 게 좋음(README 참고).
 
 ## M4에서의 설계 결정
 

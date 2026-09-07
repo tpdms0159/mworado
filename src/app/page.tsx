@@ -46,7 +46,7 @@ export default function LandingPage() {
           매일 할 일과 반복 루틴을 체크하고, 꾸준함을 잔디로 확인하는 개인용 데일리 체크 앱.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <Button render={<Link href="/login" />} size="lg">
+          <Button render={<Link href="/signup" />} size="lg">
             시작하기
           </Button>
           <Button render={<Link href="/demo" />} size="lg" variant="outline">
